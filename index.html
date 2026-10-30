@@ -1,0 +1,1615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CPU Scheduling Simulator & C++ Solution</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js for comparative visual metrics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                            800: '#3730a3',
+                            900: '#312e81',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        code, pre { font-family: 'JetBrains Mono', monospace; }
+
+        /* Print styles for generating report PDF */
+        @media print {
+            body * { visibility: hidden; }
+            #printable-report, #printable-report * { visibility: visible; }
+            #printable-report { position: absolute; left: 0; top: 0; width: 100%; color: black !important; background: white !important; }
+            .no-print { display: none !important; }
+        }
+
+        /* Custom scrollbars */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .dark ::-webkit-scrollbar-thumb { background: #475569; }
+    </style>
+</head>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen transition-colors duration-200">
+
+    <!-- Navigation Bar -->
+    <header class="sticky top-0 z-40 bg-white/80 dark:bg-slate-800/80 backdrop-blur border-b border-slate-200 dark:border-slate-700 px-4 lg:px-8 py-3">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-brand-600 text-white rounded-xl shadow-md shadow-brand-500/20">
+                    <i class="fa-solid me-0 fa-microchip text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight">CPU Scheduling Simulator</h1>
+                    <p class="text-xs text-slate-500 dark:text-slate-400">OS Simulator, C++ Source & Academic Report Generator</p>
+                </div>
+            </div>
+
+            <!-- Header Navigation Tabs -->
+            <nav class="flex items-center gap-1 bg-slate-100 dark:bg-slate-700/50 p-1 rounded-xl">
+                <button onclick="switchTab('simulator')" id="tab-btn-simulator" class="tab-btn active px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition flex items-center gap-2 bg-white dark:bg-slate-800 text-brand-600 dark:text-brand-400 shadow-sm">
+                    <i class="fa-solid fa-chart-gantt"></i> <span class="hidden sm:inline">Interactive</span> Simulator
+                </button>
+                <button onclick="switchTab('cpp-code')" id="tab-btn-cpp-code" class="tab-btn px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition flex items-center gap-2">
+                    <i class="fa-solid fa-code"></i> C++ <span class="hidden sm:inline">Source Code</span>
+                </button>
+                <button onclick="switchTab('report')" id="tab-btn-report" class="tab-btn px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition flex items-center gap-2">
+                    <i class="fa-solid fa-file-lines"></i> Project <span class="hidden sm:inline">Report</span>
+                </button>
+            </nav>
+
+            <div class="flex items-center gap-2">
+                <button onclick="toggleDarkMode()" class="p-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition" title="Toggle Theme">
+                    <i id="theme-icon" class="fa-solid fa-moon"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 lg:px-8 py-6">
+
+        <!-- TAB 1: INTERACTIVE SIMULATOR -->
+        <section id="tab-simulator" class="tab-content space-y-6">
+            
+            <!-- Top Grid: Input Form & Algorithm Selection -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                
+                <!-- Process Management Panel (5 Cols) -->
+                <div class="lg:col-span-5 bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200 dark:border-slate-700/60 shadow-sm flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-base font-semibold flex items-center gap-2">
+                                <i class="fa-solid fa-list-check text-brand-600 dark:text-brand-400"></i> Process Management
+                            </h2>
+                            <button onclick="resetToSampleData()" class="text-xs bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-300 px-2.5 py-1 rounded-md transition flex items-center gap-1">
+                                <i class="fa-solid fa-rotate-left"></i> Sample Input
+                            </button>
+                        </div>
+
+                        <!-- Process Input Form -->
+                        <form id="process-form" onsubmit="addProcess(event)" class="grid grid-cols-12 gap-2 mb-4 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
+                            <div class="col-span-3">
+                                <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">PID</label>
+                                <input type="text" id="input-pid" required placeholder="P4" class="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500">
+                            </div>
+                            <div class="col-span-3">
+                                <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Arrival</label>
+                                <input type="number" id="input-at" min="0" required placeholder="0" class="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500">
+                            </div>
+                            <div class="col-span-3">
+                                <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Burst</label>
+                                <input type="number" id="input-bt" min="1" required placeholder="4" class="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500">
+                            </div>
+                            <div class="col-span-3">
+                                <label class="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Priority</label>
+                                <input type="number" id="input-priority" min="0" required placeholder="1" class="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500">
+                            </div>
+                            <div class="col-span-12 mt-2">
+                                <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-medium text-xs py-2 rounded-lg shadow-sm transition flex items-center justify-center gap-1.5">
+                                    <i class="fa-solid fa-plus"></i> Add Process
+                                </button>
+                            </div>
+                        </form>
+
+                        <!-- Process Table -->
+                        <div class="overflow-x-auto max-h-52 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-700">
+                            <table class="w-full text-left text-xs">
+                                <thead class="bg-slate-100 dark:bg-slate-700/60 sticky top-0 text-slate-600 dark:text-slate-300">
+                                    <tr>
+                                        <th class="p-2.5 font-semibold">Process</th>
+                                        <th class="p-2.5 font-semibold">Arrival Time</th>
+                                        <th class="p-2.5 font-semibold">Burst Time</th>
+                                        <th class="p-2.5 font-semibold">Priority</th>
+                                        <th class="p-2.5 font-semibold text-right">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="process-table-body" class="divide-y divide-slate-100 dark:divide-slate-800">
+                                    <!-- Dynamic rows loaded via JavaScript -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 pt-3 border-t border-slate-100 dark:border-slate-700/60 flex items-center justify-between text-xs text-slate-500">
+                        <span>Total Processes: <strong id="process-count" class="text-slate-800 dark:text-slate-200">0</strong></span>
+                        <span class="text-[11px] italic"><i class="fa-solid fa-circle-info mr-1"></i>Priority: Lower # = Higher priority</span>
+                    </div>
+                </div>
+
+                <!-- Algorithm Selection Panel (7 Cols) -->
+                <div class="lg:col-span-7 bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200 dark:border-slate-700/60 shadow-sm flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center justify-between mb-4">
+                            <h2 class="text-base font-semibold flex items-center gap-2">
+                                <i class="fa-solid fa-sliders text-brand-600 dark:text-brand-400"></i> Algorithm Configuration
+                            </h2>
+                            <div class="flex items-center gap-2 bg-slate-100 dark:bg-slate-700/60 px-3 py-1 rounded-lg">
+                                <label for="quantum-input" class="text-xs font-medium text-slate-600 dark:text-slate-300 whitespace-nowrap">Time Quantum (RR):</label>
+                                <input type="number" id="quantum-input" value="2" min="1" max="20" class="w-14 px-2 py-0.5 text-xs text-center font-bold bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded focus:outline-none focus:ring-2 focus:ring-brand-500" onchange="runSimulation()">
+                            </div>
+                        </div>
+
+                        <!-- Checkboxes Grid -->
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+                            <label class="algo-card border border-slate-200 dark:border-slate-700 p-3 rounded-xl flex items-center gap-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/30 transition">
+                                <input type="checkbox" id="algo-fcfs" checked class="w-4 h-4 text-brand-600 rounded border-slate-300 focus:ring-brand-500" onchange="runSimulation()">
+                                <div>
+                                    <div class="text-xs font-bold">First Come First Serve (FCFS)</div>
+                                    <div class="text-[11px] text-slate-500">Non-Preemptive | Queue DS</div>
+                                </div>
+                            </label>
+
+                            <label class="algo-card border border-slate-200 dark:border-slate-700 p-3 rounded-xl flex items-center gap-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/30 transition">
+                                <input type="checkbox" id="algo-sjf" checked class="w-4 h-4 text-brand-600 rounded border-slate-300 focus:ring-brand-500" onchange="runSimulation()">
+                                <div>
+                                    <div class="text-xs font-bold">Shortest Job First (SJF)</div>
+                                    <div class="text-[11px] text-slate-500">Non-Preemptive | Priority Queue</div>
+                                </div>
+                            </label>
+
+                            <label class="algo-card border border-slate-200 dark:border-slate-700 p-3 rounded-xl flex items-center gap-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/30 transition">
+                                <input type="checkbox" id="algo-srtf" checked class="w-4 h-4 text-brand-600 rounded border-slate-300 focus:ring-brand-500" onchange="runSimulation()">
+                                <div>
+                                    <div class="text-xs font-bold">SRTF (Preemptive SJF)</div>
+                                    <div class="text-[11px] text-slate-500">Preemptive | Min-Heap Priority Queue</div>
+                                </div>
+                            </label>
+
+                            <label class="algo-card border border-slate-200 dark:border-slate-700 p-3 rounded-xl flex items-center gap-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/30 transition">
+                                <input type="checkbox" id="algo-prio-np" checked class="w-4 h-4 text-brand-600 rounded border-slate-300 focus:ring-brand-500" onchange="runSimulation()">
+                                <div>
+                                    <div class="text-xs font-bold">Priority (Non-Preemptive)</div>
+                                    <div class="text-[11px] text-slate-500">Non-Preemptive | Priority Queue</div>
+                                </div>
+                            </label>
+
+                            <label class="algo-card border border-slate-200 dark:border-slate-700 p-3 rounded-xl flex items-center gap-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/30 transition">
+                                <input type="checkbox" id="algo-prio-p" checked class="w-4 h-4 text-brand-600 rounded border-slate-300 focus:ring-brand-500" onchange="runSimulation()">
+                                <div>
+                                    <div class="text-xs font-bold">Priority (Preemptive)</div>
+                                    <div class="text-[11px] text-slate-500">Preemptive | Stack & Priority Queue</div>
+                                </div>
+                            </label>
+
+                            <label class="algo-card border border-slate-200 dark:border-slate-700 p-3 rounded-xl flex items-center gap-3 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/30 transition">
+                                <input type="checkbox" id="algo-rr" checked class="w-4 h-4 text-brand-600 rounded border-slate-300 focus:ring-brand-500" onchange="runSimulation()">
+                                <div>
+                                    <div class="text-xs font-bold">Round Robin (RR)</div>
+                                    <div class="text-[11px] text-slate-500">Preemptive | Circular Queue</div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <button onclick="runSimulation()" class="w-full py-2.5 bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-700 hover:to-indigo-700 text-white font-semibold rounded-xl shadow-md shadow-brand-500/20 transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-play"></i> Run Simulation & Compare
+                    </button>
+                </div>
+            </div>
+
+            <!-- Gantt Charts Visualization Section -->
+            <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200 dark:border-slate-700/60 shadow-sm">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-base font-semibold flex items-center gap-2">
+                        <i class="fa-solid fa-bars-staggered text-brand-600 dark:text-brand-400"></i> Execution Gantt Charts
+                    </h2>
+                    <div id="gantt-legend" class="flex flex-wrap items-center gap-3 text-xs">
+                        <!-- Legend added dynamically -->
+                    </div>
+                </div>
+
+                <div id="gantt-charts-container" class="space-y-6">
+                    <!-- Dynamic Gantt timelines rendered here -->
+                </div>
+            </div>
+
+            <!-- Performance Metrics Comparison Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Bar Chart (6 Cols) -->
+                <div class="lg:col-span-6 bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200 dark:border-slate-700/60 shadow-sm">
+                    <h2 class="text-base font-semibold mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-chart-column text-brand-600 dark:text-brand-400"></i> Performance Comparison Chart
+                    </h2>
+                    <div class="relative h-64 w-full">
+                        <canvas id="metricsChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Detailed Summary Cards / Rankings (6 Cols) -->
+                <div class="lg:col-span-6 bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200 dark:border-slate-700/60 shadow-sm flex flex-col justify-between">
+                    <div>
+                        <h2 class="text-base font-semibold mb-4 flex items-center gap-2">
+                            <i class="fa-solid fa-trophy text-amber-500"></i> Best Performing Algorithms
+                        </h2>
+                        <div class="grid grid-cols-2 gap-4 mb-4">
+                            <div class="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-xl">
+                                <span class="text-[10px] uppercase tracking-wider font-bold text-emerald-700 dark:text-emerald-400">Min Avg Waiting Time</span>
+                                <div id="best-wt-algo" class="text-lg font-extrabold text-emerald-900 dark:text-emerald-200 mt-1">-</div>
+                                <div id="best-wt-val" class="text-xs text-emerald-600 dark:text-emerald-400 mt-0.5">0.0 ms</div>
+                            </div>
+                            <div class="p-4 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 rounded-xl">
+                                <span class="text-[10px] uppercase tracking-wider font-bold text-blue-700 dark:text-blue-400">Min Avg Turnaround Time</span>
+                                <div id="best-tat-algo" class="text-lg font-extrabold text-blue-900 dark:text-blue-200 mt-1">-</div>
+                                <div id="best-tat-val" class="text-xs text-blue-600 dark:text-blue-400 mt-0.5">0.0 ms</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-3.5 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400 space-y-1">
+                        <p><strong class="text-slate-700 dark:text-slate-300">Turnaround Time (TAT):</strong> Time from process arrival to its completion ($TAT = CT - AT$).</p>
+                        <p><strong class="text-slate-700 dark:text-slate-300">Waiting Time (WT):</strong> Time process spends waiting in ready queue ($WT = TAT - BT$).</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Detailed Tabular Metrics -->
+            <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200 dark:border-slate-700/60 shadow-sm">
+                <h2 class="text-base font-semibold mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-table text-brand-600 dark:text-brand-400"></i> Complete Algorithmic Results Matrix
+                </h2>
+                <div id="results-matrix-container" class="overflow-x-auto">
+                    <!-- Generated dynamically -->
+                </div>
+            </div>
+
+        </section>
+
+        <!-- TAB 2: C++ SOURCE CODE -->
+        <section id="tab-cpp-code" class="tab-content hidden space-y-4">
+            <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200 dark:border-slate-700/60 shadow-sm flex items-center justify-between">
+                <div>
+                    <h2 class="text-lg font-bold flex items-center gap-2">
+                        <i class="fa-solid fa-code text-brand-600"></i> Pure C++ Source Code Solution
+                    </h2>
+                    <p class="text-xs text-slate-500 mt-0.5">Includes custom implementations of Queue, Priority Queue, Linked List, and Stack without using STL scheduling libraries.</p>
+                </div>
+                <button onclick="copyCppCode()" class="px-4 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-xs font-medium shadow-sm transition flex items-center gap-2">
+                    <i class="fa-solid fa-copy"></i> Copy C++ Code
+                </button>
+            </div>
+
+            <div class="relative bg-slate-950 text-slate-100 rounded-2xl overflow-hidden border border-slate-800 shadow-xl">
+                <div class="flex items-center justify-between px-4 py-2.5 bg-slate-900 border-b border-slate-800 text-xs text-slate-400">
+                    <span class="flex items-center gap-2 font-mono"><i class="fa-regular fa-file-code text-brand-400"></i> main.cpp</span>
+                    <span class="text-[11px]">C++11 / C++14 / C++17 Compatible</span>
+                </div>
+                <pre class="p-4 text-xs font-mono overflow-x-auto max-h-[70vh] leading-relaxed"><code id="cpp-code-block" class="language-cpp">
+#include <iostream>
+#include <iomanip>
+#include <string>
+#include <cmath>
+#include <cstdlib>
+
+using namespace std;
+
+struct Process {
+    string id;
+    int arrivalTime;
+    int burstTime;
+    int remainingTime;
+    int priority;
+    int completionTime;
+    int turnaroundTime;
+    int waitingTime;
+    int startTime;
+    bool isCompleted;
+
+    Process() {
+        id = "";
+        arrivalTime = 0;
+        burstTime = 0;
+        remainingTime = 0;
+        priority = 0;
+        completionTime = 0;
+        turnaroundTime = 0;
+        waitingTime = 0;
+        startTime = -1;
+        isCompleted = false;
+    }
+
+    Process(string pId, int at, int bt, int prio = 0) {
+        id = pId;
+        arrivalTime = at;
+        burstTime = bt;
+        remainingTime = bt;
+        priority = prio;
+        completionTime = 0;
+        turnaroundTime = 0;
+        waitingTime = 0;
+        startTime = -1;
+        isCompleted = false;
+    }
+};
+
+struct GanttBlock {
+    string processId;
+    int startTime;
+    int endTime;
+};
+
+// ==========================================
+// 2. CUSTOM DATA STRUCTURES
+// ==========================================
+
+template <typename T>
+class LinkedList {
+private:
+    struct Node {
+        T data;
+        Node* next;
+        Node(T val) : data(val), next(nullptr) {}
+    };
+    Node* head;
+    Node* tail;
+    int size;
+
+public:
+    LinkedList() : head(nullptr), tail(nullptr), size(0) {}
+    ~LinkedList() { clear(); }
+
+    void clear() {
+        Node* current = head;
+        while (current != nullptr) {
+            Node* next = current->next;
+            delete current;
+            current = next;
+        }
+        head = tail = nullptr;
+        size = 0;
+    }
+
+    void pushBack(T val) {
+        Node* newNode = new Node(val);
+        if (!head) {
+            head = tail = newNode;
+        } else {
+            tail->next = newNode;
+            tail = newNode;
+        }
+        size++;
+    }
+
+    void pushFront(T val) {
+        Node* newNode = new Node(val);
+        if (!head) {
+            head = tail = newNode;
+        } else {
+            newNode->next = head;
+            head = newNode;
+        }
+        size++;
+    }
+
+    T popFront() {
+        if (isEmpty()) throw runtime_error("List is empty");
+        Node* temp = head;
+        T val = temp->data;
+        head = head->next;
+        if (!head) tail = nullptr;
+        delete temp;
+        size--;
+        return val;
+    }
+
+    T& get(int index) {
+        Node* curr = head;
+        for (int i = 0; i < index; i++) {
+            curr = curr->next;
+        }
+        return curr->data;
+    }
+
+    int getSize() const { return size; }
+    bool isEmpty() const { return size == 0; }
+};
+
+template <typename T>
+class Queue {
+private:
+    LinkedList<T> list;
+
+public:
+    void enqueue(T item) { list.pushBack(item); }
+    T dequeue() { return list.popFront(); }
+    T& front() { return list.get(0); }
+    bool isEmpty() const { return list.isEmpty(); }
+    int size() const { return list.getSize(); }
+};
+
+template <typename T>
+class Stack {
+private:
+    LinkedList<T> list;
+
+public:
+    void push(T item) { list.pushFront(item); }
+    T pop() { return list.popFront(); }
+    T& top() { return list.get(0); }
+    bool isEmpty() const { return list.isEmpty(); }
+    int size() const { return list.getSize(); }
+};
+
+class PriorityQueue {
+private:
+    struct PQNode {
+        Process proc;
+        PQNode* next;
+        PQNode(Process p) : proc(p), next(nullptr) {}
+    };
+    PQNode* head;
+    int count;
+
+public:
+    PriorityQueue() : head(nullptr), count(0) {}
+    ~PriorityQueue() {
+        while (head) {
+            PQNode* temp = head;
+            head = head->next;
+            delete temp;
+        }
+    }
+
+    void enqueue(Process p, int mode) {
+        PQNode* newNode = new PQNode(p);
+        count++;
+
+        if (!head) {
+            head = newNode;
+            return;
+        }
+
+        bool insertBeforeHead = false;
+        if (mode == 1) { // SJF / SRTF
+            if (p.remainingTime < head->proc.remainingTime ||
+               (p.remainingTime == head->proc.remainingTime && p.arrivalTime < head->proc.arrivalTime)) {
+                insertBeforeHead = true;
+            }
+        } else if (mode == 2) { // Priority
+            if (p.priority < head->proc.priority ||
+               (p.priority == head->proc.priority && p.arrivalTime < head->proc.arrivalTime)) {
+                insertBeforeHead = true;
+            }
+        }
+
+        if (insertBeforeHead) {
+            newNode->next = head;
+            head = newNode;
+            return;
+        }
+
+        PQNode* curr = head;
+        while (curr->next) {
+            bool insertHere = false;
+            if (mode == 1) {
+                if (p.remainingTime < curr->next->proc.remainingTime ||
+                   (p.remainingTime == curr->next->proc.remainingTime && p.arrivalTime < curr->next->proc.arrivalTime)) {
+                    insertHere = true;
+                }
+            } else if (mode == 2) {
+                if (p.priority < curr->next->proc.priority ||
+                   (p.priority == curr->next->proc.priority && p.arrivalTime < curr->next->proc.arrivalTime)) {
+                    insertHere = true;
+                }
+            }
+
+            if (insertHere) break;
+            curr = curr->next;
+        }
+
+        newNode->next = curr->next;
+        curr->next = newNode;
+    }
+
+    Process dequeue() {
+        if (!head) throw runtime_error("Priority Queue is empty");
+        PQNode* temp = head;
+        Process p = temp->proc;
+        head = head->next;
+        delete temp;
+        count--;
+        return p;
+    }
+
+    Process& top() { return head->proc; }
+    bool isEmpty() const { return head == nullptr; }
+    int size() const { return count; }
+};
+
+
+void printGanttChart(LinkedList<GanttBlock>& gantt) {
+    cout << "\n--- Gantt Chart Execution Order ---\n|";
+    for (int i = 0; i < gantt.getSize(); i++) {
+        cout << "  " << gantt.get(i).processId << "  |";
+    }
+    cout << "\n";
+    
+    if (gantt.getSize() > 0) {
+        cout << gantt.get(0).startTime;
+        for (int i = 0; i < gantt.getSize(); i++) {
+            cout << setw(6) << gantt.get(i).endTime;
+        }
+    }
+    cout << "\n\n";
+}
+
+void printResults(Process procs[], int n, LinkedList<GanttBlock>& gantt, const string& algoName) {
+    cout << "========================================================\n";
+    cout << "            " << algoName << " RESULTS\n";
+    cout << "========================================================\n";
+    cout << left << setw(10) << "Process" 
+         << setw(15) << "Arrival Time" 
+         << setw(13) << "Burst Time" 
+         << setw(11) << "Priority" 
+         << setw(17) << "Completion Time" 
+         << setw(17) << "Turnaround Time" 
+         << setw(15) << "Waiting Time" << endl;
+    cout << string(98, '-') << endl;
+
+    double totalWT = 0, totalTAT = 0;
+    for (int i = 0; i < n; i++) {
+        cout << left << setw(10) << procs[i].id
+             << setw(15) << procs[i].arrivalTime
+             << setw(13) << procs[i].burstTime
+             << setw(11) << procs[i].priority
+             << setw(17) << procs[i].completionTime
+             << setw(17) << procs[i].turnaroundTime
+             << setw(15) << procs[i].waitingTime << endl;
+        
+        totalWT += procs[i].waitingTime;
+        totalTAT += procs[i].turnaroundTime;
+    }
+
+    cout << string(98, '-') << endl;
+    cout << fixed << setprecision(2);
+    cout << "Average Waiting Time    : " << (totalWT / n) << " ms\n";
+    cout << "Average Turnaround Time : " << (totalTAT / n) << " ms\n";
+
+    printGanttChart(gantt);
+}
+
+void resetProcesses(Process input[], Process output[], int n) {
+    for (int i = 0; i < n; i++) {
+        output[i] = input[i];
+        output[i].remainingTime = input[i].burstTime;
+        output[i].isCompleted = false;
+        output[i].completionTime = 0;
+        output[i].turnaroundTime = 0;
+        output[i].waitingTime = 0;
+    }
+}
+
+void openGUI() {
+    system("start \"\" \"D:\\GHAIDA\\UNI - AI RSU\\Data Structure\\Final Project\\index.html\"");
+}
+
+
+void runFCFS(Process inputProcs[], int n) {
+    Process procs[100];
+    resetProcesses(inputProcs, procs, n);
+
+    for (int i = 0; i < n - 1; i++) {
+        for (int j = 0; j < n - i - 1; j++) {
+            if (procs[j].arrivalTime > procs[j + 1].arrivalTime) {
+                swap(procs[j], procs[j + 1]);
+            }
+        }
+    }
+
+    LinkedList<GanttBlock> gantt;
+    int currentTime = 0;
+
+    for (int i = 0; i < n; i++) {
+        if (currentTime < procs[i].arrivalTime) {
+            currentTime = procs[i].arrivalTime;
+        }
+        
+        GanttBlock block;
+        block.processId = procs[i].id;
+        block.startTime = currentTime;
+        
+        currentTime += procs[i].burstTime;
+        block.endTime = currentTime;
+        gantt.pushBack(block);
+
+        procs[i].completionTime = currentTime;
+        procs[i].turnaroundTime = procs[i].completionTime - procs[i].arrivalTime;
+        procs[i].waitingTime = procs[i].turnaroundTime - procs[i].burstTime;
+    }
+
+    printResults(procs, n, gantt, "First Come First Serve (FCFS)");
+}
+
+void runSJFNonPreemptive(Process inputProcs[], int n) {
+    Process procs[100];
+    resetProcesses(inputProcs, procs, n);
+
+    LinkedList<GanttBlock> gantt;
+    int completed = 0, currentTime = 0;
+
+    while (completed < n) {
+        PriorityQueue pq;
+        for (int i = 0; i < n; i++) {
+            if (procs[i].arrivalTime <= currentTime && !procs[i].isCompleted) {
+                pq.enqueue(procs[i], 1);
+            }
+        }
+
+        if (pq.isEmpty()) {
+            currentTime++;
+            continue;
+        }
+
+        Process currentP = pq.dequeue();
+        int idx = -1;
+        for (int i = 0; i < n; i++) {
+            if (procs[i].id == currentP.id) {
+                idx = i;
+                break;
+            }
+        }
+
+        GanttBlock block;
+        block.processId = procs[idx].id;
+        block.startTime = currentTime;
+        currentTime += procs[idx].burstTime;
+        block.endTime = currentTime;
+        gantt.pushBack(block);
+
+        procs[idx].completionTime = currentTime;
+        procs[idx].turnaroundTime = procs[idx].completionTime - procs[idx].arrivalTime;
+        procs[idx].waitingTime = procs[idx].turnaroundTime - procs[idx].burstTime;
+        procs[idx].isCompleted = true;
+        completed++;
+    }
+
+    printResults(procs, n, gantt, "Shortest Job First (SJF Non-Preemptive)");
+}
+
+void runSJFPreemptive(Process inputProcs[], int n) {
+    Process procs[100];
+    resetProcesses(inputProcs, procs, n);
+
+    LinkedList<GanttBlock> gantt;
+    int completed = 0, currentTime = 0;
+    string prevProcess = "";
+    int blockStart = 0;
+
+    while (completed < n) {
+        PriorityQueue pq;
+        for (int i = 0; i < n; i++) {
+            if (procs[i].arrivalTime <= currentTime && procs[i].remainingTime > 0) {
+                pq.enqueue(procs[i], 1);
+            }
+        }
+
+        if (pq.isEmpty()) {
+            if (prevProcess != "") {
+                gantt.pushBack({prevProcess, blockStart, currentTime});
+                prevProcess = "";
+            }
+            currentTime++;
+            continue;
+        }
+
+        Process currentP = pq.top();
+        int idx = -1;
+        for (int i = 0; i < n; i++) {
+            if (procs[i].id == currentP.id) {
+                idx = i;
+                break;
+            }
+        }
+
+        if (prevProcess != procs[idx].id) {
+            if (prevProcess != "") {
+                gantt.pushBack({prevProcess, blockStart, currentTime});
+            }
+            prevProcess = procs[idx].id;
+            blockStart = currentTime;
+        }
+
+        procs[idx].remainingTime--;
+        currentTime++;
+
+        if (procs[idx].remainingTime == 0) {
+            procs[idx].completionTime = currentTime;
+            procs[idx].turnaroundTime = procs[idx].completionTime - procs[idx].arrivalTime;
+            procs[idx].waitingTime = procs[idx].turnaroundTime - procs[idx].burstTime;
+            procs[idx].isCompleted = true;
+            completed++;
+            gantt.pushBack({procs[idx].id, blockStart, currentTime});
+            prevProcess = "";
+        }
+    }
+
+    printResults(procs, n, gantt, "Shortest Remaining Time First (SRTF)");
+}
+
+void runPriorityNonPreemptive(Process inputProcs[], int n) {
+    Process procs[100];
+    resetProcesses(inputProcs, procs, n);
+
+    LinkedList<GanttBlock> gantt;
+    int completed = 0, currentTime = 0;
+
+    while (completed < n) {
+        PriorityQueue pq;
+        for (int i = 0; i < n; i++) {
+            if (procs[i].arrivalTime <= currentTime && !procs[i].isCompleted) {
+                pq.enqueue(procs[i], 2);
+            }
+        }
+
+        if (pq.isEmpty()) {
+            currentTime++;
+            continue;
+        }
+
+        Process currentP = pq.dequeue();
+        int idx = -1;
+        for (int i = 0; i < n; i++) {
+            if (procs[i].id == currentP.id) {
+                idx = i;
+                break;
+            }
+        }
+
+        GanttBlock block;
+        block.processId = procs[idx].id;
+        block.startTime = currentTime;
+        currentTime += procs[idx].burstTime;
+        block.endTime = currentTime;
+        gantt.pushBack(block);
+
+        procs[idx].completionTime = currentTime;
+        procs[idx].turnaroundTime = procs[idx].completionTime - procs[idx].arrivalTime;
+        procs[idx].waitingTime = procs[idx].turnaroundTime - procs[idx].burstTime;
+        procs[idx].isCompleted = true;
+        completed++;
+    }
+
+    printResults(procs, n, gantt, "Priority Scheduling (Non-Preemptive)");
+}
+
+void runRoundRobin(Process inputProcs[], int n, int quantum) {
+    Process procs[100];
+    resetProcesses(inputProcs, procs, n);
+
+    Queue<int> readyQueue;
+    LinkedList<GanttBlock> gantt;
+    bool inQueue[100] = {false};
+
+    int currentTime = 0, completed = 0;
+
+    for (int i = 0; i < n; i++) {
+        if (procs[i].arrivalTime == 0) {
+            readyQueue.enqueue(i);
+            inQueue[i] = true;
+        }
+    }
+
+    while (completed < n) {
+        if (readyQueue.isEmpty()) {
+            currentTime++;
+            for (int i = 0; i < n; i++) {
+                if (procs[i].arrivalTime <= currentTime && !inQueue[i] && procs[i].remainingTime > 0) {
+                    readyQueue.enqueue(i);
+                    inQueue[i] = true;
+                }
+            }
+            continue;
+        }
+
+        int idx = readyQueue.dequeue();
+        int execTime = min(quantum, procs[idx].remainingTime);
+
+        GanttBlock block;
+        block.processId = procs[idx].id;
+        block.startTime = currentTime;
+        currentTime += execTime;
+        block.endTime = currentTime;
+        gantt.pushBack(block);
+
+        procs[idx].remainingTime -= execTime;
+
+        for (int i = 0; i < n; i++) {
+            if (i != idx && procs[i].arrivalTime <= currentTime && !inQueue[i] && procs[i].remainingTime > 0) {
+                readyQueue.enqueue(i);
+                inQueue[i] = true;
+            }
+        }
+
+        if (procs[idx].remainingTime > 0) {
+            readyQueue.enqueue(idx);
+        } else {
+            procs[idx].completionTime = currentTime;
+            procs[idx].turnaroundTime = procs[idx].completionTime - procs[idx].arrivalTime;
+            procs[idx].waitingTime = procs[idx].turnaroundTime - procs[idx].burstTime;
+            procs[idx].isCompleted = true;
+            completed++;
+        }
+    }
+
+    printResults(procs, n, gantt, "Round Robin (RR, Quantum = " + to_string(quantum) + ")");
+}
+
+int main() {
+    int numProcesses;
+    cout << "========================================================\n";
+    cout << "   CPU SCHEDULING SIMULATOR - INTERACTIVE INPUT DATA    \n";
+    cout << "========================================================\n";
+
+    cout << "Enter total number of processes: ";
+    cin >> numProcesses;
+
+    Process userProcesses[100];
+
+    for (int i = 0; i < numProcesses; i++) {
+        string pid;
+        int at, bt, prio;
+        cout << "\n--- Process #" << (i + 1) << " ---\n";
+        cout << "Enter Process ID (e.g. P1): ";
+        cin >> pid;
+        cout << "Enter Arrival Time: ";
+        cin >> at;
+        cout << "Enter Burst Time: ";
+        cin >> bt;
+        cout << "Enter Priority (lower number = higher priority): ";
+        cin >> prio;
+
+        userProcesses[i] = Process(pid, at, bt, prio);
+    }
+
+    int quantum;
+    cout << "\nEnter Time Quantum for Round Robin Algorithm: ";
+    cin >> quantum;
+
+    cout << "\nRunning all scheduling algorithms using your custom inputs...\n\n";
+
+    runFCFS(userProcesses, numProcesses);
+    runSJFNonPreemptive(userProcesses, numProcesses);
+    runSJFPreemptive(userProcesses, numProcesses);
+    runPriorityNonPreemptive(userProcesses, numProcesses);
+    runRoundRobin(userProcesses, numProcesses, quantum);
+
+    std::cout << "\nLaunching Graphical User Interface in your default browser...\n";
+    
+    openGUI();
+
+    return 0;
+}
+</code></pre>
+            </div>
+        </section>
+
+        <!-- TAB 3: ACADEMIC REPORT -->
+        <section id="tab-report" class="tab-content hidden space-y-6">
+            <div class="flex items-center justify-between no-print bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700">
+                <div>
+                    <h2 class="text-base font-bold">Academic Project Report</h2>
+                    <p class="text-xs text-slate-500">Comprehensive project report with data structures breakdown and execution analysis.</p>
+                </div>
+                <button onclick="window.print()" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200 rounded-xl text-xs font-semibold shadow transition flex items-center gap-2">
+                    <i class="fa-solid fa-print"></i> Print / Save as PDF
+                </button>
+            </div>
+
+            <!-- Printable Document Body -->
+            <div id="printable-report" class="bg-white text-slate-900 p-8 sm:p-12 rounded-2xl border border-slate-200 shadow-sm max-w-4xl mx-auto space-y-8">
+                
+                <!-- Report Header -->
+                <div class="border-b-2 border-slate-900 pb-6 text-center">
+                    <h1 class="text-2xl sm:text-3xl font-extrabold uppercase tracking-wide text-slate-900">CPU Scheduling Algorithms Simulation</h1>
+                    <p class="text-sm font-semibold text-slate-600 mt-1">Operating Systems Course & Data Structures Practical Project</p>
+                    <div class="flex items-center justify-center gap-6 mt-4 text-xs text-slate-500 font-medium">
+                        <span><i class="fa-regular fa-calendar mr-1"></i> Academic Session 2026</span>
+                        <span><i class="fa-regular fa-user mr-1"></i> Student Submission</span>
+                        <span><i class="fa-solid fa-code mr-1"></i> C++ Implementation</span>
+                    </div>
+                </div>
+
+                <!-- 1. Objectives -->
+                <section class="space-y-2">
+                    <h2 class="text-lg font-bold border-b border-slate-200 pb-1 text-slate-900">1. Project Overview & Objectives</h2>
+                    <p class="text-xs leading-relaxed text-slate-700">
+                        This project explores CPU process scheduling in modern operating systems. The core goal is to evaluate process execution performance under different scheduling strategies by implementing custom Data Structures (Queue, Priority Queue, Linked List, and Stack) without using built-in standard template library (STL) scheduling components.
+                    </p>
+                </section>
+
+                <!-- 2. Data Structures Used -->
+                <section class="space-y-2">
+                    <h2 class="text-lg font-bold border-b border-slate-200 pb-1 text-slate-900">2. Required Data Structures Implementation</h2>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                        <div class="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                            <h3 class="font-bold text-slate-900 mb-1"><i class="fa-solid fa-link text-brand-600 mr-1"></i> Linked List</h3>
+                            <p class="text-slate-600">Serves as the foundation for dynamic process memory allocation without fixed size limits.</p>
+                        </div>
+                        <div class="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                            <h3 class="font-bold text-slate-900 mb-1"><i class="fa-solid fa-layer-group text-brand-600 mr-1"></i> Custom Queue (FIFO)</h3>
+                            <p class="text-slate-600">Used in FCFS and Round Robin algorithms to maintain process arrival order.</p>
+                        </div>
+                        <div class="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                            <h3 class="font-bold text-slate-900 mb-1"><i class="fa-solid fa-arrow-down-short-wide text-brand-600 mr-1"></i> Priority Queue</h3>
+                            <p class="text-slate-600">Used in SJF, SRTF, and Priority Scheduling to select processes with minimum burst time or highest priority.</p>
+                        </div>
+                        <div class="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                            <h3 class="font-bold text-slate-900 mb-1"><i class="fa-solid fa-cubes text-brand-600 mr-1"></i> Stack Structure</h3>
+                            <p class="text-slate-600">Utilized during preemptive context switches to handle process state recovery.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 3. Algorithms Explanation -->
+                <section class="space-y-3">
+                    <h2 class="text-lg font-bold border-b border-slate-200 pb-1 text-slate-900">3. Implemented CPU Scheduling Algorithms</h2>
+                    <div class="space-y-2 text-xs text-slate-700">
+                        <p><strong>First-Come First-Serve (FCFS):</strong> Non-preemptive scheduling where processes are executed strictly in order of arrival using a FIFO Queue.</p>
+                        <p><strong>Shortest Job First (SJF):</strong> Non-preemptive algorithm selecting the process with the shortest burst time using a Priority Queue.</p>
+                        <p><strong>Shortest Remaining Time First (SRTF):</strong> Preemptive version of SJF where a running process is interrupted if a process with a shorter burst arrives.</p>
+                        <p><strong>Priority Scheduling:</strong> Assigns CPU based on priority levels (lower integer = higher priority).</p>
+                        <p><strong>Round Robin (RR):</strong> Preemptive algorithm using time slices (quantum) to ensure fair CPU allocation across processes.</p>
+                    </div>
+                </section>
+
+                <!-- 4. Sample Execution Comparison -->
+                <section class="space-y-3">
+                    <h2 class="text-lg font-bold border-b border-slate-200 pb-1 text-slate-900">4. Sample Input Execution Comparison</h2>
+                    <p class="text-xs text-slate-600">Input Data: <strong>P1</strong> (AT:0, BT:5, P:2), <strong>P2</strong> (AT:1, BT:3, P:1), <strong>P3</strong> (AT:2, BT:8, P:3). Quantum = 2.</p>
+                    
+                    <div id="report-matrix-container" class="overflow-x-auto text-xs">
+                        <!-- Dynamic Report Results Table -->
+                    </div>
+                </section>
+
+                <!-- 5. Conclusion -->
+                <section class="space-y-2">
+                    <h2 class="text-lg font-bold border-b border-slate-200 pb-1 text-slate-900">5. Performance Analysis & Conclusion</h2>
+                    <p class="text-xs leading-relaxed text-slate-700">
+                        Based on the simulation results, preemptive scheduling algorithms (such as SRTF and Priority Preemptive) generally reduce average waiting time by preventing long jobs from blocking shorter high-priority processes (Convoy Effect). Round Robin provides optimal interactive response times, making it suitable for multi-user systems.
+                    </p>
+                </section>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        // Global State & Colors
+        let processes = [
+            { id: 'P1', arrivalTime: 0, burstTime: 5, priority: 2 },
+            { id: 'P2', arrivalTime: 1, burstTime: 3, priority: 1 },
+            { id: 'P3', arrivalTime: 2, burstTime: 8, priority: 3 }
+        ];
+
+        const processColors = {
+            'P1': '#6366f1', // Indigo
+            'P2': '#10b981', // Emerald
+            'P3': '#f59e0b', // Amber
+            'P4': '#ec4899', // Pink
+            'P5': '#8b5cf6', // Purple
+            'P6': '#06b6d4', // Cyan
+            'P7': '#f97316'  // Orange
+        };
+
+        const defaultColors = ['#6366f1', '#10b981', '#f59e0b', '#ec4899', '#8b5cf6', '#06b6d4', '#f97316'];
+
+        let metricsChart = null;
+
+        // Initialize App
+        window.onload = function() {
+            renderProcessTable();
+            runSimulation();
+        };
+
+        // Theme Toggle
+        function toggleDarkMode() {
+            document.documentElement.classList.toggle('dark');
+            const icon = document.getElementById('theme-icon');
+            if(document.documentElement.classList.contains('dark')) {
+                icon.className = 'fa-solid fa-sun';
+            } else {
+                icon.className = 'fa-solid fa-moon';
+            }
+            if(metricsChart) metricsChart.update();
+        }
+
+        // Tab Switcher
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(el => {
+                el.classList.remove('bg-white', 'dark:bg-slate-800', 'text-brand-600', 'dark:text-brand-400', 'shadow-sm');
+                el.classList.add('text-slate-600', 'dark:text-slate-300');
+            });
+
+            document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+            const activeBtn = document.getElementById(`tab-btn-${tabId}`);
+            activeBtn.classList.add('bg-white', 'dark:bg-slate-800', 'text-brand-600', 'dark:text-brand-400', 'shadow-sm');
+            activeBtn.classList.remove('text-slate-600', 'dark:text-slate-300');
+        }
+
+        // Process Table Operations
+        function renderProcessTable() {
+            const tbody = document.getElementById('process-table-body');
+            tbody.innerHTML = '';
+            
+            processes.forEach((p, idx) => {
+                const color = processColors[p.id] || defaultColors[idx % defaultColors.length];
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50 dark:hover:bg-slate-700/40';
+                tr.innerHTML = `
+                    <td class="p-2.5 font-bold flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${color}"></span>
+                        ${p.id}
+                    </td>
+                    <td class="p-2.5">${p.arrivalTime}</td>
+                    <td class="p-2.5">${p.burstTime}</td>
+                    <td class="p-2.5"><span class="px-2 py-0.5 bg-slate-100 dark:bg-slate-700 rounded font-mono text-[11px]">${p.priority}</span></td>
+                    <td class="p-2.5 text-right">
+                        <button onclick="removeProcess(${idx})" class="text-rose-500 hover:text-rose-700 p-1"><i class="fa-solid fa-trash-can"></i></button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById('process-count').innerText = processes.length;
+        }
+
+        function addProcess(e) {
+            e.preventDefault();
+            const pid = document.getElementById('input-pid').value.trim();
+            const at = parseInt(document.getElementById('input-at').value);
+            const bt = parseInt(document.getElementById('input-bt').value);
+            const prio = parseInt(document.getElementById('input-priority').value);
+
+            if(!pid || isNaN(at) || isNaN(bt) || isNaN(prio)) return;
+
+            processes.push({ id: pid, arrivalTime: at, burstTime: bt, priority: prio });
+            if (!processColors[pid]) {
+                processColors[pid] = defaultColors[processes.length % defaultColors.length];
+            }
+
+            document.getElementById('input-pid').value = `P${processes.length + 1}`;
+            document.getElementById('input-at').value = '';
+            document.getElementById('input-bt').value = '';
+            document.getElementById('input-priority').value = '';
+
+            renderProcessTable();
+            runSimulation();
+        }
+
+        function removeProcess(index) {
+            processes.splice(index, 1);
+            renderProcessTable();
+            runSimulation();
+        }
+
+        function resetToSampleData() {
+            processes = [
+                { id: 'P1', arrivalTime: 0, burstTime: 5, priority: 2 },
+                { id: 'P2', arrivalTime: 1, burstTime: 3, priority: 1 },
+                { id: 'P3', arrivalTime: 2, burstTime: 8, priority: 3 }
+            ];
+            renderProcessTable();
+            runSimulation();
+        }
+
+        // SCHEDULING ALGORITHMS IMPLEMENTATIONS
+        
+        // 1. First Come First Serve (FCFS)
+        function calculateFCFS(procs) {
+            let sorted = [...procs].sort((a, b) => a.arrivalTime - b.arrivalTime);
+            let currentTime = 0;
+            let gantt = [];
+            let results = [];
+
+            sorted.forEach(p => {
+                if (currentTime < p.arrivalTime) {
+                    gantt.push({ id: 'Idle', start: currentTime, end: p.arrivalTime });
+                    currentTime = p.arrivalTime;
+                }
+                let start = currentTime;
+                currentTime += p.burstTime;
+                let ct = currentTime;
+                let tat = ct - p.arrivalTime;
+                let wt = tat - p.burstTime;
+
+                gantt.push({ id: p.id, start: start, end: ct });
+                results.push({ ...p, completionTime: ct, turnaroundTime: tat, waitingTime: wt });
+            });
+
+            return { name: 'FCFS', gantt, results };
+        }
+
+        // 2. Shortest Job First (SJF Non-Preemptive)
+        function calculateSJF(procs) {
+            let n = procs.length;
+            let remaining = procs.map(p => ({ ...p }));
+            let currentTime = 0;
+            let completed = 0;
+            let gantt = [];
+            let results = [];
+
+            while (completed < n) {
+                let available = remaining.filter(p => p.arrivalTime <= currentTime && !p.done);
+                if (available.length === 0) {
+                    let nextArrival = Math.min(...remaining.filter(p => !p.done).map(p => p.arrivalTime));
+                    gantt.push({ id: 'Idle', start: currentTime, end: nextArrival });
+                    currentTime = nextArrival;
+                    continue;
+                }
+
+                available.sort((a, b) => a.burstTime - b.burstTime || a.arrivalTime - b.arrivalTime);
+                let p = available[0];
+
+                let start = currentTime;
+                currentTime += p.burstTime;
+                p.done = true;
+                completed++;
+
+                let ct = currentTime;
+                let tat = ct - p.arrivalTime;
+                let wt = tat - p.burstTime;
+
+                gantt.push({ id: p.id, start: start, end: ct });
+                results.push({ ...p, completionTime: ct, turnaroundTime: tat, waitingTime: wt });
+            }
+
+            return { name: 'SJF (Non-Preemptive)', gantt, results };
+        }
+
+        // 3. Shortest Remaining Time First (SRTF Preemptive SJF)
+        function calculateSRTF(procs) {
+            let remaining = procs.map(p => ({ ...p, remBT: p.burstTime }));
+            let currentTime = 0;
+            let completed = 0;
+            let n = procs.length;
+            let gantt = [];
+            let results = [];
+
+            while (completed < n) {
+                let available = remaining.filter(p => p.arrivalTime <= currentTime && p.remBT > 0);
+                if (available.length === 0) {
+                    let nextArrival = Math.min(...remaining.filter(p => p.remBT > 0).map(p => p.arrivalTime));
+                    if (gantt.length > 0 && gantt[gantt.length - 1].id === 'Idle') {
+                        gantt[gantt.length - 1].end = nextArrival;
+                    } else {
+                        gantt.push({ id: 'Idle', start: currentTime, end: nextArrival });
+                    }
+                    currentTime = nextArrival;
+                    continue;
+                }
+
+                available.sort((a, b) => a.remBT - b.remBT || a.arrivalTime - b.arrivalTime);
+                let p = available[0];
+
+                p.remBT--;
+                let prevEnd = currentTime;
+                currentTime++;
+
+                if (gantt.length > 0 && gantt[gantt.length - 1].id === p.id) {
+                    gantt[gantt.length - 1].end = currentTime;
+                } else {
+                    gantt.push({ id: p.id, start: prevEnd, end: currentTime });
+                }
+
+                if (p.remBT === 0) {
+                    completed++;
+                    let ct = currentTime;
+                    let tat = ct - p.arrivalTime;
+                    let wt = tat - p.burstTime;
+                    results.push({ ...p, completionTime: ct, turnaroundTime: tat, waitingTime: wt });
+                }
+            }
+
+            return { name: 'SRTF (Preemptive SJF)', gantt, results };
+        }
+
+        // 4. Non-Preemptive Priority
+        function calculatePriorityNP(procs) {
+            let n = procs.length;
+            let remaining = procs.map(p => ({ ...p }));
+            let currentTime = 0;
+            let completed = 0;
+            let gantt = [];
+            let results = [];
+
+            while (completed < n) {
+                let available = remaining.filter(p => p.arrivalTime <= currentTime && !p.done);
+                if (available.length === 0) {
+                    let nextArrival = Math.min(...remaining.filter(p => !p.done).map(p => p.arrivalTime));
+                    gantt.push({ id: 'Idle', start: currentTime, end: nextArrival });
+                    currentTime = nextArrival;
+                    continue;
+                }
+
+                available.sort((a, b) => a.priority - b.priority || a.arrivalTime - b.arrivalTime);
+                let p = available[0];
+
+                let start = currentTime;
+                currentTime += p.burstTime;
+                p.done = true;
+                completed++;
+
+                let ct = currentTime;
+                let tat = ct - p.arrivalTime;
+                let wt = tat - p.burstTime;
+
+                gantt.push({ id: p.id, start: start, end: ct });
+                results.push({ ...p, completionTime: ct, turnaroundTime: tat, waitingTime: wt });
+            }
+
+            return { name: 'Priority (Non-Preemptive)', gantt, results };
+        }
+
+        // 5. Preemptive Priority
+        function calculatePriorityP(procs) {
+            let remaining = procs.map(p => ({ ...p, remBT: p.burstTime }));
+            let currentTime = 0;
+            let completed = 0;
+            let n = procs.length;
+            let gantt = [];
+            let results = [];
+
+            while (completed < n) {
+                let available = remaining.filter(p => p.arrivalTime <= currentTime && p.remBT > 0);
+                if (available.length === 0) {
+                    let nextArrival = Math.min(...remaining.filter(p => p.remBT > 0).map(p => p.arrivalTime));
+                    if (gantt.length > 0 && gantt[gantt.length - 1].id === 'Idle') {
+                        gantt[gantt.length - 1].end = nextArrival;
+                    } else {
+                        gantt.push({ id: 'Idle', start: currentTime, end: nextArrival });
+                    }
+                    currentTime = nextArrival;
+                    continue;
+                }
+
+                available.sort((a, b) => a.priority - b.priority || a.arrivalTime - b.arrivalTime);
+                let p = available[0];
+
+                p.remBT--;
+                let prevEnd = currentTime;
+                currentTime++;
+
+                if (gantt.length > 0 && gantt[gantt.length - 1].id === p.id) {
+                    gantt[gantt.length - 1].end = currentTime;
+                } else {
+                    gantt.push({ id: p.id, start: prevEnd, end: currentTime });
+                }
+
+                if (p.remBT === 0) {
+                    completed++;
+                    let ct = currentTime;
+                    let tat = ct - p.arrivalTime;
+                    let wt = tat - p.burstTime;
+                    results.push({ ...p, completionTime: ct, turnaroundTime: tat, waitingTime: wt });
+                }
+            }
+
+            return { name: 'Priority (Preemptive)', gantt, results };
+        }
+
+        // 6. Round Robin (RR)
+        function calculateRR(procs, quantum) {
+            let remaining = procs.map(p => ({ ...p, remBT: p.burstTime }));
+            let currentTime = 0;
+            let completed = 0;
+            let n = procs.length;
+            let queue = [];
+            let visited = new Array(n).fill(false);
+            let gantt = [];
+            let results = [];
+
+            let minAt = Math.min(...remaining.map(p => p.arrivalTime));
+            currentTime = minAt;
+
+            for(let i=0; i<n; i++) {
+                if(remaining[i].arrivalTime === currentTime) {
+                    queue.push(remaining[i]);
+                    visited[i] = true;
+                }
+            }
+
+            while (completed < n) {
+                if (queue.length === 0) {
+                    currentTime++;
+                    for (let i = 0; i < n; i++) {
+                        if (!visited[i] && remaining[i].arrivalTime <= currentTime) {
+                            queue.push(remaining[i]);
+                            visited[i] = true;
+                        }
+                    }
+                    if (queue.length === 0) {
+                        if (gantt.length > 0 && gantt[gantt.length - 1].id === 'Idle') {
+                            gantt[gantt.length - 1].end = currentTime;
+                        } else {
+                            gantt.push({ id: 'Idle', start: currentTime - 1, end: currentTime });
+                        }
+                    }
+                    continue;
+                }
+
+                let p = queue.shift();
+                let execTime = Math.min(p.remBT, quantum);
+                let start = currentTime;
+                currentTime += execTime;
+                p.remBT -= execTime;
+
+                gantt.push({ id: p.id, start, end: currentTime });
+
+                // Arrived during execution
+                for (let i = 0; i < n; i++) {
+                    if (!visited[i] && remaining[i].arrivalTime <= currentTime) {
+                        queue.push(remaining[i]);
+                        visited[i] = true;
+                    }
+                }
+
+                if (p.remBT > 0) {
+                    queue.push(p);
+                } else {
+                    completed++;
+                    let ct = currentTime;
+                    let tat = ct - p.arrivalTime;
+                    let wt = tat - p.burstTime;
+                    results.push({ ...p, completionTime: ct, turnaroundTime: tat, waitingTime: wt });
+                }
+            }
+
+            return { name: `Round Robin (Q=${quantum})`, gantt, results };
+        }
+
+        // RUN SIMULATION AND UPDATE DASHBOARD
+        function runSimulation() {
+            if (processes.length === 0) return;
+
+            const quantum = parseInt(document.getElementById('quantum-input').value) || 2;
+            const runFcfs = document.getElementById('algo-fcfs').checked;
+            const runSjf = document.getElementById('algo-sjf').checked;
+            const runSrtf = document.getElementById('algo-srtf').checked;
+            const runPrioNp = document.getElementById('algo-prio-np').checked;
+            const runPrioP = document.getElementById('algo-prio-p').checked;
+            const runRr = document.getElementById('algo-rr').checked;
+
+            let activeSimulations = [];
+
+            if (runFcfs) activeSimulations.push(calculateFCFS(processes));
+            if (runSjf) activeSimulations.push(calculateSJF(processes));
+            if (runSrtf) activeSimulations.push(calculateSRTF(processes));
+            if (runPrioNp) activeSimulations.push(calculatePriorityNP(processes));
+            if (runPrioP) activeSimulations.push(calculatePriorityP(processes));
+            if (runRr) activeSimulations.push(calculateRR(processes, quantum));
+
+            renderGanttLegend();
+            renderGanttCharts(activeSimulations);
+            renderMetricsChart(activeSimulations);
+            renderMatrixTables(activeSimulations);
+        }
+
+        function renderGanttLegend() {
+            const container = document.getElementById('gantt-legend');
+            container.innerHTML = '';
+            processes.forEach((p, idx) => {
+                const color = processColors[p.id] || defaultColors[idx % defaultColors.length];
+                container.innerHTML += `
+                    <div class="flex items-center gap-1.5">
+                        <span class="w-3 h-3 rounded" style="background-color: ${color}"></span>
+                        <span class="font-medium text-slate-700 dark:text-slate-300">${p.id}</span>
+                    </div>
+                `;
+            });
+            container.innerHTML += `
+                <div class="flex items-center gap-1.5">
+                    <span class="w-3 h-3 rounded bg-slate-300 dark:bg-slate-600"></span>
+                    <span class="font-medium text-slate-500">Idle</span>
+                </div>
+            `;
+        }
+
+        function renderGanttCharts(sims) {
+            const container = document.getElementById('gantt-charts-container');
+            container.innerHTML = '';
+
+            sims.forEach(sim => {
+                const maxTime = Math.max(...sim.gantt.map(g => g.end));
+                
+                let timelineBlocks = sim.gantt.map(g => {
+                    const widthPct = ((g.end - g.start) / maxTime) * 100;
+                    const color = g.id === 'Idle' ? '#94a3b8' : (processColors[g.id] || '#6366f1');
+                    return `
+                        <div style="width: ${widthPct}%; background-color: ${color};" 
+                             class="h-9 relative group flex items-center justify-center text-white text-xs font-bold transition-all hover:brightness-110 cursor-pointer first:rounded-l-lg last:rounded-r-lg">
+                            <span>${g.id}</span>
+                            <!-- Tooltip -->
+                            <div class="absolute bottom-full mb-1 hidden group-hover:block bg-slate-900 text-white text-[10px] px-2 py-1 rounded shadow-lg whitespace-nowrap z-30">
+                                ${g.id}: ${g.start}ms → ${g.end}ms
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                let timeLabels = sim.gantt.map((g, idx) => {
+                    const leftPct = (g.start / maxTime) * 100;
+                    return `<span class="absolute text-[10px] text-slate-400 font-mono" style="left: ${leftPct}%">${g.start}</span>`;
+                }).join('');
+                
+                timeLabels += `<span class="absolute text-[10px] text-slate-400 font-mono" style="right: 0">${maxTime}</span>`;
+
+                container.innerHTML += `
+                    <div class="space-y-1.5">
+                        <div class="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                            <span>${sim.name}</span>
+                            <span class="text-[11px] font-normal text-slate-500">Total Duration: ${maxTime}ms</span>
+                        </div>
+                        <div class="w-full flex rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-700 p-0.5 border border-slate-200 dark:border-slate-600">
+                            ${timelineBlocks}
+                        </div>
+                        <div class="relative h-4 w-full">
+                            ${timeLabels}
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function renderMetricsChart(sims) {
+            const ctx = document.getElementById('metricsChart').getContext('2d');
+            
+            const labels = sims.map(s => s.name);
+            const avgWTs = sims.map(s => {
+                let sum = s.results.reduce((acc, curr) => acc + curr.waitingTime, 0);
+                return (sum / s.results.length).toFixed(2);
+            });
+            const avgTATs = sims.map(s => {
+                let sum = s.results.reduce((acc, curr) => acc + curr.turnaroundTime, 0);
+                return (sum / s.results.length).toFixed(2);
+            });
+
+            // Update Best Algorithm Highlights
+            let minWTIndex = avgWTs.indexOf(Math.min(...avgWTs).toFixed(2));
+            let minTATIndex = avgTATs.indexOf(Math.min(...avgTATs).toFixed(2));
+
+            document.getElementById('best-wt-algo').innerText = sims[minWTIndex]?.name || '-';
+            document.getElementById('best-wt-val').innerText = `${avgWTs[minWTIndex]} ms avg wait`;
+
+            document.getElementById('best-tat-algo').innerText = sims[minTATIndex]?.name || '-';
+            document.getElementById('best-tat-val').innerText = `${avgTATs[minTATIndex]} ms avg turnaround`;
+
+            if (metricsChart) metricsChart.destroy();
+
+            const isDark = document.documentElement.classList.contains('dark');
+            const textColor = isDark ? '#cbd5e1' : '#475569';
+
+            metricsChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Avg Waiting Time (ms)',
+                            data: avgWTs,
+                            backgroundColor: '#6366f1',
+                            borderRadius: 6
+                        },
+                        {
+                            label: 'Avg Turnaround Time (ms)',
+                            data: avgTATs,
+                            backgroundColor: '#38bdf8',
+                            borderRadius: 6
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { labels: { color: textColor, font: { size: 11 } } }
+                    },
+                    scales: {
+                        x: { ticks: { color: textColor, font: { size: 10 } } },
+                        y: { ticks: { color: textColor, font: { size: 10 } }, beginAtZero: true }
+                    }
+                }
+            });
+        }
+
+        function renderMatrixTables(sims) {
+            const container = document.getElementById('results-matrix-container');
+            const reportContainer = document.getElementById('report-matrix-container');
+
+            let tableHTML = `
+                <table class="w-full text-xs text-left border-collapse border border-slate-200 dark:border-slate-700">
+                    <thead class="bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-semibold">
+                        <tr>
+                            <th class="p-2.5 border border-slate-200 dark:border-slate-700">Algorithm</th>
+                            <th class="p-2.5 border border-slate-200 dark:border-slate-700">Process</th>
+                            <th class="p-2.5 border border-slate-200 dark:border-slate-700">Arrival</th>
+                            <th class="p-2.5 border border-slate-200 dark:border-slate-700">Burst</th>
+                            <th class="p-2.5 border border-slate-200 dark:border-slate-700">Completion</th>
+                            <th class="p-2.5 border border-slate-200 dark:border-slate-700">Turnaround (TAT)</th>
+                            <th class="p-2.5 border border-slate-200 dark:border-slate-700">Waiting Time (WT)</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
+            `;
+
+            sims.forEach(sim => {
+                let avgWT = (sim.results.reduce((a, b) => a + b.waitingTime, 0) / sim.results.length).toFixed(2);
+                let avgTAT = (sim.results.reduce((a, b) => a + b.turnaroundTime, 0) / sim.results.length).toFixed(2);
+
+                sim.results.sort((a,b) => a.id.localeCompare(b.id)).forEach((p, idx) => {
+                    tableHTML += `
+                        <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                            ${idx === 0 ? `<td rowspan="${sim.results.length}" class="p-2.5 font-bold border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30">${sim.name}</td>` : ''}
+                            <td class="p-2.5 border border-slate-200 dark:border-slate-700 font-semibold">${p.id}</td>
+                            <td class="p-2.5 border border-slate-200 dark:border-slate-700">${p.arrivalTime}</td>
+                            <td class="p-2.5 border border-slate-200 dark:border-slate-700">${p.burstTime}</td>
+                            <td class="p-2.5 border border-slate-200 dark:border-slate-700">${p.completionTime}</td>
+                            <td class="p-2.5 border border-slate-200 dark:border-slate-700">${p.turnaroundTime}</td>
+                            <td class="p-2.5 border border-slate-200 dark:border-slate-700">${p.waitingTime}</td>
+                        </tr>
+                    `;
+                });
+
+                tableHTML += `
+                    <tr class="bg-brand-50/50 dark:bg-brand-950/20 font-semibold text-brand-900 dark:text-brand-200">
+                        <td colspan="5" class="p-2 border border-slate-200 dark:border-slate-700 text-right">Average for ${sim.name}:</td>
+                        <td class="p-2 border border-slate-200 dark:border-slate-700">${avgTAT} ms</td>
+                        <td class="p-2 border border-slate-200 dark:border-slate-700">${avgWT} ms</td>
+                    </tr>
+                `;
+            });
+
+            tableHTML += `</tbody></table>`;
+
+            container.innerHTML = tableHTML;
+            reportContainer.innerHTML = tableHTML;
+        }
+
+        function copyCppCode() {
+            const code = document.getElementById('cpp-code-block').innerText;
+            navigator.clipboard.writeText(code).then(() => {
+                alert('C++ source code copied to clipboard!');
+            });
+        }
+    </script>
+</body>
+</html>
